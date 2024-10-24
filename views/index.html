@@ -4,14 +4,65 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AV Sandbox POC</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+        }
+        .navbar {
+            background-color: #007bff;
+            padding: 1rem;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 80vh;
+        }
+        .upload-section {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .upload-section h1 {
+            color: #007bff;
+        }
+        .upload-section input[type="file"] {
+            margin: 1rem 0;
+        }
+        .upload-section input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .upload-section input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+    </style>
 </head>
 <body>
-    <h1>Sandbox POC</h1>
-    <form onsubmit="return submitFile();" method="POST" action="/submit" enctype="multipart/form-data">
-        <input type="file" id="myFile" name="filename">
-        <input type="submit">
-    </form>
-    </br>
+    <div class="navbar">
+        <h1>AV Sandbox POC</h1>
+    </div>
+    <div class="container">
+        <div class="upload-section">
+            <h1>Upload Your File</h1>
+            <form onsubmit="return submitFile();" method="POST" action="/submit" enctype="multipart/form-data">
+                <input type="file" id="myFile" name="filename">
+                <br>
+                <input type="submit" value="Upload">
+            </form>
+        </div>
+    </div>
 
     <!-- Analysis status display -->
     <div id="status-container">
@@ -22,77 +73,11 @@
         </p>
         
         </br>
-        <br>
-        <span>Analysis ID: </span>
-        <span id="analysis-id">Not available</span>
-        <br>
-        <span>Analysis Status: </span>
-        <span id="analysis-status">Not available</span>
     </div>
-
-    <!-- Analysis results -->
-    <div id="results">
-        <h2>Analysis Results</h2>
-        <div id="analysis-results"></div>
-    </div>
-
 
     <script>
         // Script to handle fetching, countdown, and rendering
         let analysisId;
-        let analysisStatus;
-        let countdown = 45;
-        let countdownInterval;
-
-      // Function to start the countdown and update every second
-        const startCountdown = () => {
-            clearInterval(countdownInterval); // Clear existing countdown if any
-            countdown = 45;
-
-            // Show the countdown text after the analysis ID is available
-            document.getElementById('refresh-holder').style.display = 'inline';
-
-            document.getElementById('countdown-text').innerText = `Status will update in ${countdown} seconds...`;
-
-            countdownInterval = setInterval(() => {
-            countdown -= 1;
-            document.getElementById('countdown-text').innerText = `Status will update in ${countdown} seconds...`;
-
-            if (countdown === 0) {
-                checkStatus(); // Automatically check status after 45 seconds
-            }
-            }, 1000);
-        };
-
-        // Function to stop the countdown
-        const stopCountdown = () => {
-            clearInterval(countdownInterval);
-            document.getElementById('countdown-text').style.display = 'none'; // Hide countdown when it's no longer needed
-        };
-
-        // Function to update results on the page
-        const updateResults = (data) => {
-            analysisStatus = data.data.attributes.status;
-            document.getElementById("analysis-status").innerText = analysisStatus;
-
-            if (analysisStatus === "completed") {
-            stopCountdown(); // Stop the countdown once the analysis is completed
-
-            // Detections per category (malicious, suspicious, undetected, etc.)
-            const stats = data.data.attributes.stats;
-            let resultText = `
-                Malicious: ${stats.malicious}, 
-                Suspicious: ${stats.suspicious}, 
-                Undetected: ${stats.undetected}, 
-                Harmless: ${stats.harmless}, 
-                Timeout: ${stats.timeout}, 
-                Confirmed Timeout: ${stats['confirmed-timeout']}, 
-                Failure: ${stats.failure}, 
-                Type Unsupported: ${stats['type-unsupported']}
-            `;
-            document.getElementById("analysis-results").innerText = resultText;
-            }
-        };
 
         // On form submit
         const submitFile = () => {
@@ -102,8 +87,8 @@
 
             // Send file to server
             fetch("/submit", {
-            method: "POST",
-            body: formData,
+                method: "POST",
+                body: formData,
             })
             .then((response) => response.json())
             .then((data) => {
@@ -116,35 +101,10 @@
             }
             })
             .catch((error) => {
-            console.error("Error:", error);
+                console.error("Error:", error);
             });
 
             return false;
-        };
-
-        // Function to check analysis status manually or via countdown
-        const checkStatus = () => {
-            if (!analysisId) {
-            console.log("No analysis ID available.");
-            return;
-            }
-
-            fetch(`/analysis/${analysisId}`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            })
-            .then((response) => response.json())
-            .then((data) => {
-            updateResults(data);
-            if (analysisStatus !== "completed") {
-                startCountdown(); // Reset countdown if analysis is not yet completed
-            }
-            })
-            .catch((error) => {
-            console.error("Error:", error);
-            });
         };
     </script>
 </body>

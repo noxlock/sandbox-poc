@@ -23,6 +23,10 @@ app.get('/', (req, res) => {
     res.render('index.pug');
 });
 
+app.get('/detail', (req, res) => {
+    res.render('detail.pug');
+});
+
 app.post('/submit', upload.single('sample'), (req, res) => {
 
     const form = new FormData();
