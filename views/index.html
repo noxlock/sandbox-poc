@@ -28,7 +28,9 @@
             padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            width: 70%;
         }
         .upload-section h1 {
             color: #007bff;
@@ -47,6 +49,65 @@
         .upload-section input[type="submit"]:hover {
             background-color: #0056b3;
         }
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #007bff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            margin: 1rem 0;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #countdown-text {
+            font-size: 1.2rem;
+            color: #007bff;
+        }
+        .status-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 50%;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #analysis-id {
+            font-size: smaller;
+        }
     </style>
 </head>
 <body>
@@ -55,31 +116,52 @@
     </div>
     <div class="container">
         <div class="upload-section">
-            <h1>Upload Your File</h1>
-            <form onsubmit="return submitFile();" method="POST" action="/submit" enctype="multipart/form-data">
-                <input type="file" id="myFile" name="filename">
+            <div>
+                <h1>Upload Your File</h1>
+                <form onsubmit="return submitFile();" method="POST" action="/submit" enctype="multipart/form-data">
+                    <input type="file" id="myFile" name="filename">
+                    <br>
+                    <input type="submit" value="Upload">
+                </form>
+            </div>
+            <div id="status-container" class="status-section" style="display:none;">
+                <div class="loader"></div>
+                <p id="refresh-holder">
+                    <span id="countdown-text">Status will update in 45 seconds...</span>
+                    <br>
+                    alternatively, check for an update now: <button onclick="checkStatus()">Check Status</button>
+                </p>
                 <br>
-                <input type="submit" value="Upload">
-            </form>
+                <span>Analysis ID: </span>
+                <span id="analysis-id">Not available</span>
+                <br>
+                <span>Analysis Status: </span>
+                <span id="analysis-status">Not available</span>
+            </div>
+            <div id="reopen-modal-container" class="status-section" style="display:none;">
+                <h1 style="color: #007bff;">Analysis Complete!</h1>
+                <button onclick="openModal()">View Analysis Results</button>
+            </div>
         </div>
     </div>
-
-    <!-- Analysis status display -->
-    <div id="status-container">
-        <p id="refresh-holder" style="display:none;">
-            <span id="countdown-text">Status will update in 45 seconds...</span>
-            </br>
-            alternatively, check for an update now: <button onclick="checkStatus()">Check Status</button>
-        </p>
-        
-        </br>
+    <div id="results-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Analysis Results</h2>
+            <div id="results-container"></div>
+            <br>
+            <span>Analysis ID: </span>
+            <span id="modal-analysis-id">Not available</span>
+            <br>
+            <span>Analysis Status: </span>
+            <span id="modal-analysis-status">Not available</span>
+        </div>
     </div>
-
     <script>
-        // Script to handle fetching, countdown, and rendering
         let analysisId;
+        let countdown = 45;
+        let countdownInterval;
 
-        // On form submit
         const submitFile = () => {
             const file = document.getElementById("myFile").files[0];
             const formData = new FormData();
@@ -92,19 +174,89 @@
             })
             .then((response) => response.json())
             .then((data) => {
-            if (data.analysis_id) {
-                analysisId = data.analysis_id;
-                document.getElementById('analysis-id').innerText = analysisId; // Update the analysis ID in the UI
-                startCountdown(); // Start countdown after analysis is submitted
-            } else {
-                console.log("Error: ", data.errors);
-            }
+                console.log(data);
+                if (data.analysis_id) {
+                    analysisId = data.analysis_id;
+                    document.getElementById('analysis-id').innerText = analysisId; // Update the analysis ID in the UI
+                    document.getElementById('status-container').style.display = 'flex'; // Show status container
+                    startCountdown(); // Start countdown after analysis is submitted
+                } else {
+                    console.log("Error: ", data.errors);
+                }
             })
             .catch((error) => {
                 console.error("Error:", error);
             });
 
-            return false;
+            return false; // Prevent form submission
+        };
+
+        const updateCountdown = () => {
+            countdown--;
+            document.getElementById("countdown-text").textContent = `Status will update in ${countdown} seconds...`;
+            if (countdown <= 0) {
+                fetchStatus();
+                countdown = 45; // Reset countdown
+            }
+        };
+
+        const startCountdown = () => {
+            countdownInterval = setInterval(updateCountdown, 1000);
+        };
+
+        const stopCountdown = () => {
+            clearInterval(countdownInterval);
+        };
+
+        const updateResults = (data) => {
+            const analysisStatus = data.data.attributes.status;
+            document.getElementById("analysis-status").innerText = analysisStatus;
+
+            if (analysisStatus === "completed") {
+                stopCountdown(); // Stop the countdown once the analysis is completed
+                document.getElementById('status-container').style.display = 'none'; // Hide status container
+                document.getElementById('reopen-modal-container').style.display = 'flex'; // Show reopen modal button
+
+                // Update modal with analysis ID and status
+                document.getElementById('modal-analysis-id').innerText = analysisId;
+                document.getElementById('modal-analysis-status').innerText = analysisStatus;
+
+                // Detections per category (malicious, suspicious, undetected, etc.)
+                const stats = data.data.attributes.stats;
+                let resultText = `
+                    Malicious: ${stats.malicious}, 
+                    Suspicious: ${stats.suspicious}, 
+                    Undetected: ${stats.undetected}, 
+                    Harmless: ${stats.harmless}, 
+                    Timeout: ${stats.timeout}, 
+                    Confirmed Timeout: ${stats['confirmed-timeout']}, 
+                    Failure: ${stats.failure}, 
+                    Type Unsupported: ${stats['type-unsupported']}
+                `;
+                document.getElementById("results-container").innerText = resultText;
+
+                // Show results modal
+                document.getElementById('results-modal').style.display = 'block';
+            }
+        };
+
+        const fetchStatus = () => {
+            fetch(`/analysis/${analysisId}`)
+                .then(response => response.json())
+                .then(data => updateResults(data))
+                .catch(error => console.error('Error fetching status:', error));
+        };
+
+        const checkStatus = () => {
+            fetchStatus();
+        };
+
+        const openModal = () => {
+            document.getElementById('results-modal').style.display = 'block';
+        };
+
+        const closeModal = () => {
+            document.getElementById('results-modal').style.display = 'none';
         };
     </script>
 </body>
